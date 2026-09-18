@@ -1,0 +1,10 @@
+services:
+  gridwise:
+    build: .
+    image: gridwise:1.0.0
+    env_file: .env
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+    restart: unless-stopped
