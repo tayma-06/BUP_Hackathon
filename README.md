@@ -57,6 +57,14 @@ On PowerShell use `curl.exe` and keep the POST on one line.
 - [`gridwise/docs/SUBMISSION_CHECKLIST.md`](gridwise/docs/SUBMISSION_CHECKLIST.md) — final deliverables
 - [`gridwise/docs/CHANGES.md`](gridwise/docs/CHANGES.md) — design and audit trail
 
+## Live deployment
+
+- **Docker image:** https://hub.docker.com/r/kanetahkhan/gridwise — pull with `docker pull kanetahkhan/gridwise:1.0.0`
+- **Render deployment:** https://gridwise-energy-api.onrender.com/ — the free tier sleeps when idle, so first request may take a minute to wake.
+- **Interactive API docs (OpenAPI/Swagger):** https://gridwise-energy-api.onrender.com/docs
+
+Verify the running service with the `curl` examples in [Verify the service](#verify-the-service).
+
 ## Security
 
 - Keep credentials in `gridwise/.env`; it, editor-history backups (`.history/`),
@@ -66,5 +74,6 @@ On PowerShell use `curl.exe` and keep the POST on one line.
 
 ## Status
 
-Public deployment and a pullable registry image still need verification.
+Deployed on Render and published as a pullable Docker image; see
+[Live deployment](#live-deployment) for both.
 See `gridwise/docs/VERIFICATION.md` for the recorded checks and their scope.

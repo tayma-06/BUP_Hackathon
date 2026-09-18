@@ -6,9 +6,14 @@ language model, validates the extracted directives, then solves the minimum-cost
 24-hour schedule for battery, rooftop solar and grid import subject to every
 accepted constraint.
 
-**Current status:** see `docs/VERIFICATION.md` for recorded local, model and
-container checks and their scope. Public deployment and a pullable registry
-image still need verification. See `START_HERE.md` for Windows setup steps.
+**Current status:** deployed on Render
+(https://gridwise-energy-api.onrender.com/, API docs at
+https://gridwise-energy-api.onrender.com/docs) and published as the Docker image
+`kanetahkhan/gridwise:1.0.0`
+(https://hub.docker.com/r/kanetahkhan/gridwise). The Render free tier sleeps
+when idle, so the first request may take a minute to wake. See
+`docs/VERIFICATION.md` for recorded local, model and container checks, and
+`START_HERE.md` for Windows setup steps.
 
 ## Layout
 
@@ -204,6 +209,17 @@ docker run --rm --env-file .env -e PORT=8000 -p 8000:8000 YOUR_DOCKERHUB_USER/gr
 Submit the actual registry reference, ideally including its digest. Verify the
 exact published image and run command after pulling it from your registry.
 `compose.yaml` is an optional local alternative using `docker compose up --build`.
+
+## Live deployment
+
+- **Docker image:** `docker pull kanetahkhan/gridwise:1.0.0` —
+  https://hub.docker.com/r/kanetahkhan/gridwise
+- **Render deployment:** https://gridwise-energy-api.onrender.com/
+- **Interactive API docs (OpenAPI/Swagger):** https://gridwise-energy-api.onrender.com/docs
+
+The Render free tier sleeps when idle, so the health check may return 503 while
+the service wakes. Retry after a short pause; the first request after a cold
+start typically takes about a minute.
 
 See `docs/DEPLOYMENT.md` for hosting and `docs/SUBMISSION_CHECKLIST.md` for the
 remaining deliverables. Never commit `.env`; the image copies an explicit file
