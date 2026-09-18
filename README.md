@@ -1,153 +1,70 @@
-# GridWise LLM
+﻿# GridWise LLM
 
-An AI-powered energy optimization API that interprets operator instructions using LLMs and generates optimized energy scheduling plans using mathematical optimization.
+BUP CSE Fest 2026 — Preliminary Smart Campus Energy Optimization Challenge.
 
-## 🚀 Live Deployment
+An HTTP API that reads 1-3 short operator notes (e.g. "keep at least 120 kWh
+in reserve from 6 PM to 9 PM"), interprets them with a generative language
+model, validates the interpreted directives, and produces the minimum-cost
+24-hour schedule for a campus battery, rooftop solar and grid import — while
+respecting every accepted constraint and never inventing a `no_op`.
 
-| Resource | Link |
-|---|---|
-| Production API | https://gridwise-energy-api.onrender.com/ |
-| Swagger API Docs | https://gridwise-energy-api.onrender.com/docs |
-| Docker Image | https://hub.docker.com/r/kanetahkhan/gridwise |
+The entire application, its tests, and its Dockerfile live in [`gridwise/`](gridwise/).
 
-The API is deployed using Docker on Render. A Docker Hub image is provided as a fallback deployment artifact.
+## Repository layout
 
----
-
-## Overview
-
-GridWise LLM is an intelligent energy management API designed to optimize energy usage across a 24-hour planning horizon.
-
-The system combines:
-
-- Natural language instruction interpretation using LLMs
-- Structured directive validation
-- Mathematical optimization
-- Battery scheduling
-- Renewable energy prioritization
-
----
-
-## Architecture
-
-```
-User Operator Notes
-        |
-        v
-LLM Interpreter
-(Groq Primary + Gemini Backup)
-        |
-        v
-Directive Validator
-        |
-        v
-Energy Optimizer
-(Linear Programming / SciPy HiGHS)
-        |
-        v
-24-Hour Energy Plan API Response
+```text
+README.md          this overview
+gridwise/          runnable FastAPI application + tests
+gridwise/app/      API, interpreter, guardrails, optimizer, validator
+gridwise/data/     organizer fixture and reference responses
+gridwise/docs/     setup, verification, deployment and submission guides
 ```
 
----
+## Quick start
 
-## Key Features
+Requires **Python 3.12**. From the root of this repository, enter the
+application folder before running any setup command:
 
-- LLM-based operator note interpretation
-- Groq primary LLM with Gemini fallback
-- Structured JSON directive generation
-- Input validation and safety checks
-- 24-hour energy scheduling optimization
-- Solar-first energy utilization
-- Battery charge/discharge optimization
-- Peak demand reduction
-- Grid cost optimization
-- FastAPI REST API
-- Docker deployment support
-
----
-
-## Technology Stack
-
-| Component | Technology |
-|---|---|
-| Backend | FastAPI |
-| Language | Python |
-| LLM Primary | Groq |
-| LLM Backup | Gemini |
-| Optimization | SciPy Linear Programming (HiGHS) |
-| Validation | Pydantic |
-| Testing | Pytest |
-| Deployment | Docker + Render |
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /health | Service health check |
-| POST | /optimize-energy | Generate optimized energy plan |
-
-### Example — POST /optimize-energy
-
-Request:
-
-```json
-{
-  "scenario_id": "TEST-001",
-  "operator_notes": [
-    "Reduce solar output between 12 and 13 hours"
-  ],
-  "hours": [
-    {
-      "hour": 0,
-      "demand_kwh": 100,
-      "solar_kwh": 0,
-      "tariff_bdt_per_kwh": 8
-    }
-  ],
-  "battery": {
-    "capacity_kwh": 200,
-    "initial_energy_kwh": 100,
-    "minimum_energy_kwh": 20,
-    "max_charge_kwh_per_hour": 50,
-    "max_discharge_kwh_per_hour": 50
-  }
-}
+```powershell
+cd gridwise
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+# Edit .env privately: set LLM_API_KEY and confirm the provider/model.
+.\.venv\Scripts\python.exe run.py
 ```
 
-`hours` must contain exactly 24 entries (hours `0`–`23`); the snippet above is truncated for brevity.
+The server binds to `0.0.0.0` on `PORT` (default `8000`).
 
-Response:
+For Linux/macOS equivalents, a full configuration reference, the API
+contract, and the optimization model, read [`gridwise/README.md`](gridwise/README.md).
 
-```json
-{
-  "scenario_id": "TEST-001",
-  "directive_interpretation": [
-    {
-      "note_index": 0,
-      "applies": true,
-      "directive_type": "solar_reduction",
-      "structured_adjustment": {
-        "hours": [12],
-        "factor": 0.2
-      },
-      "explanation": "Usable solar is reduced during the stated hours."
-    }
-  ],
-  "hourly_plan": [
-    {
-      "hour": 0,
-      "grid_kwh": 100,
-      "solar_used_kwh": 0,
-      "battery_action": "idle",
-      "battery_kwh": 0,
-      "battery_energy_after_kwh": 100
-    }
-  ],
-  "total_grid_kwh": 2400,
-  "total_cost_bdt": 19200,
-  "peak_grid_kwh": 100,
-  "plan_summary": "Applied solar_reduction 12:00-13:00 (solar x0.2). Least-cost LP plan: 2400 kWh from grid, 19200 BDT, peak 100 kWh."
-}
+## Verify the service
+
+```bash
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/optimize-energy \
+  -H 'Content-Type: application/json' --data-binary @data/sample_request.json
 ```
+
+On PowerShell use `curl.exe` and keep the POST on one line.
+
+## Guides
+
+- [`gridwise/START_HERE.md`](gridwise/START_HERE.md) — step-by-step Windows setup
+- [`gridwise/docs/VERIFICATION.md`](gridwise/docs/VERIFICATION.md) — recorded local, model and container checks
+- [`gridwise/docs/DEPLOYMENT.md`](gridwise/docs/DEPLOYMENT.md) — hosting, Render and Docker
+- [`gridwise/docs/SUBMISSION_CHECKLIST.md`](gridwise/docs/SUBMISSION_CHECKLIST.md) — final deliverables
+- [`gridwise/docs/CHANGES.md`](gridwise/docs/CHANGES.md) — design and audit trail
+
+## Security
+
+- Keep credentials in `gridwise/.env`; it, editor-history backups (`.history/`),
+  and other environment snapshots are Git-ignored.
+- `gridwise/.env.example` documents every variable without secrets.
+- The API never logs prompts, model replies or keys.
+
+## Status
+
+Public deployment and a pullable registry image still need verification.
+See `gridwise/docs/VERIFICATION.md` for the recorded checks and their scope.

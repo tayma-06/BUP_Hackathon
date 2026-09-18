@@ -13,6 +13,9 @@
 | Cache depended only on lowercased note text | Full exact note context and all battery parameters form the cache key |
 | Tiny cycling penalty could distort the true cost optimum | Pure cost objective with positive scaling; simultaneous flows are netted afterward |
 | Provider retries could reuse full timeout repeatedly | Per-attempt wall-clock limits and a shared request budget |
+| Rate-limit errors were retried immediately despite Retry-After | Provider cooldowns, bounded backoff and ready-backup selection within the interpretation deadline |
+| Editor history could put credential copies into Git | Root and application ignore rules, Docker history exclusions, and removal of tracked snapshots from the index; committed credentials still require rotation |
+| Clone instructions assumed application files were at repository root | Root README, quickstart and deployment instructions use the gridwise subfolder |
 | Missing tests, sample runner and submission guidance | Added automated checks, independent cost oracle, live/offline sample runner, Docker files and submission/video guides |
 
 `llm_client.py` and `llm_client (1).py` in the upload were identical. The project
