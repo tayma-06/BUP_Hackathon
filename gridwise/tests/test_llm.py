@@ -155,7 +155,7 @@ def test_bad_factor_is_rejected_directly():
         validate_entry({"directive_type": "solar_reduction", "hours": [12], "factor": 2.0}, BATTERY)
 
 
-def test_backup_provider_is_used_after_primary_fails(mocker):
+def test_backup_provider_is_used_after_primary_fails():
     async def run():
         backup = ProviderConfig("backup", "custom", "openai", "https://backup.invalid/v1", "m2", "")
         calls = []

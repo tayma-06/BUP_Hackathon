@@ -5,19 +5,20 @@ Optimization Challenge. It interprets 1-3 operator notes using a generative
 language model, validates structured directives, and minimizes the 24-hour grid
 electricity cost subject to every accepted constraint.
 
-**Current status:** local solver and automated tests are supplied. Live model
-accuracy, deployment reachability and the Docker image must be verified using
-your own configured account/environment. See `START_HERE.md` for Windows steps
-and `docs/VERIFICATION.md` for the recorded checks and their scope.
+**Current status:** see `docs/VERIFICATION.md` for recorded local, model and
+container checks and their scope. Public deployment and a pullable registry
+image still need verification. See `START_HERE.md` for Windows steps.
 
 ## Quickstart
 
 Requires Python 3.12 and network access to your chosen model provider.
-Start in the extracted project root, or clone your event-created repository:
+The application lives in the repository's `gridwise` folder. Clone your
+event-created repository and enter that folder (skip these first two commands
+if you already opened the application folder):
 
 ```bash
 git clone https://github.com/YOUR_ACCOUNT/YOUR_EVENT_REPOSITORY.git
-cd YOUR_EVENT_REPOSITORY
+cd YOUR_EVENT_REPOSITORY/gridwise
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -26,9 +27,11 @@ cp .env.example .env
 python run.py
 ```
 
-On Windows PowerShell, no environment activation is needed:
+On Windows PowerShell, start at the cloned repository root. No environment
+activation is needed (skip `cd gridwise` if already in that folder):
 
 ```powershell
+cd gridwise
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
@@ -114,8 +117,11 @@ judging timeout. A rule-based parser is not a compliant substitute.
    deduplicates hours, and converts model-extracted capacity percentages to
    kWh. Conflicting fields trigger a repair attempt.
 4. Invalid entries are retried using their original indices and full note
-   context. A configured backup model gets a turn before a second primary
-   attempt. Every attempt shares the same bounded time budget.
+   context. A ready backup model gets a turn before a second primary attempt.
+   Provider retries respect `Retry-After` (seconds or HTTP date), with a small
+   timing margin, or use exponential backoff when no valid header is available.
+   Waiting and network attempts share the same bounded time budget; a cooldown
+   beyond the deadline does not trigger an immediate retry.
 5. `optimizer.py` converts accepted directives into LP bounds and solves the
    energy schedule with SciPy/HiGHS. It never drops a hard directive.
 6. `validator.py` independently reconstructs the directive limits and replays
@@ -188,10 +194,9 @@ docker pull YOUR_DOCKERHUB_USER/gridwise:1.0.0
 docker run --rm --env-file .env -e PORT=8000 -p 8000:8000 YOUR_DOCKERHUB_USER/gridwise:1.0.0
 ```
 
-Submit the actual registry reference, ideally including its digest. The exact
-published image and run command need your verification: Docker is not installed
-in the environment where this project was prepared. `compose.yaml` is an
-optional local alternative using `docker compose up --build`.
+Submit the actual registry reference, ideally including its digest. Verify the
+exact published image and run command after pulling it from your registry.
+`compose.yaml` is an optional local alternative using `docker compose up --build`.
 
 See `docs/DEPLOYMENT.md` for hosting and `docs/SUBMISSION_CHECKLIST.md` for the
 remaining deliverables. Never commit `.env`; the image copies an explicit file
@@ -200,8 +205,8 @@ raw prompts and model replies are not logged by the application.
 
 ## Limitations and documented assumptions
 
-- Hidden semantic accuracy depends on the selected model. No live credentials
-  were available during preparation; run the actual LLM tests before submission.
+- Hidden semantic accuracy depends on the selected model. Repeat live LLM tests
+  with your deployment's configuration and quota before submission.
 - The supplied statement does not define precedence for overlapping solar
   reductions. This implementation multiplies their factors in overlapping
   hours. Reserves combine by maximum, caps by minimum, outages by union. Ask the

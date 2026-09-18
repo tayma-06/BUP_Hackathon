@@ -16,7 +16,10 @@ Robustness details:
 from __future__ import annotations
 
 import logging
+import math
 import re
+import time
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -35,6 +38,20 @@ class LLMError(Exception):
         super().__init__(message)
         self.retryable = retryable
         self.retry_after = retry_after
+
+
+def _retry_after_seconds(value: str | None) -> float | None:
+    """Accept Retry-After seconds or an HTTP date; reject unsafe numeric values."""
+    if not value:
+        return None
+    try:
+        delay = float(value)
+    except ValueError:
+        try:
+            delay = max(0.0, parsedate_to_datetime(value).timestamp() - time.time())
+        except (ValueError, TypeError, OverflowError):
+            return None
+    return delay if math.isfinite(delay) and delay >= 0 else None
 
 
 def _redact(text: str, secret: str) -> str:
@@ -127,13 +144,7 @@ class LLMClient:
     @staticmethod
     def _http_error(provider: ProviderConfig, response: httpx.Response) -> LLMError:
         status = response.status_code
-        retry_after = None
-        header = response.headers.get("retry-after")
-        if header:
-            try:
-                retry_after = float(header)
-            except ValueError:
-                retry_after = None
+        retry_after = _retry_after_seconds(response.headers.get("retry-after"))
         if status in (401, 403):
             return LLMError(f"{provider.label} LLM auth failed (HTTP {status}) - check the API key", retryable=False)
         retryable = status in (408, 409, 425, 429) or status >= 500

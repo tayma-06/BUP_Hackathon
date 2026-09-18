@@ -69,9 +69,8 @@ deadline, as the supplied guide requires.
 - The optimizer matches all 10 supplied reference costs.
 - The project includes input validation, LLM retries/backup, guardrails,
   independent replay, tests, sample requests, Docker files and instructions.
-- Live model inference has **not** been tested with your account.
-- No public deployment, registry image or recorded video has been created.
-- Docker is unavailable in the preparation environment; run the documented
-  container test before submitting a registry reference.
+- See `docs/VERIFICATION.md` for the latest live model and local Docker checks.
+- Public deployment, registry pullability and the recorded video still need
+  verification before submission.
 
 For architecture, configuration and limitations, read `README.md`.

@@ -153,45 +153,62 @@ async def interpret_notes(notes: list[str], battery: Battery, llm: LLMClient,
     sources, pending, feedback = ["pending"] * count, list(range(count)), {}
     deadline = time.monotonic() + settings.interpret_budget_s
     disabled = set()
-    # Each provider gets a first attempt before any provider gets a retry.
-    for attempt in range(settings.llm_max_tries):
-        for provider in llm.providers:
-            if not pending:
-                break
-            if provider.label in disabled:
-                continue
-            remaining = deadline - time.monotonic()
-            if remaining <= 0.05:
-                break
-            timeout = min(settings.llm_timeout_s, remaining)
-            try:
-                reply = await asyncio.wait_for(llm.complete(
-                    provider, SYSTEM_PROMPT, _user_prompt(notes, battery, pending, feedback),
-                    timeout=timeout), timeout=timeout)
-            except (LLMError, asyncio.TimeoutError) as exc:
-                # Never log provider response bodies, prompts or model output.
-                log.warning("LLM attempt failed: provider=%s kind=%s", provider.label, type(exc).__name__)
-                if isinstance(exc, LLMError) and not exc.retryable:
-                    disabled.add(provider.label)
-                continue
-            try:
-                entries = parse_llm_json(reply, pending)
-            except (ValueError, RecursionError):
-                for i in pending:
-                    feedback[i] = "Invalid JSON or note mapping. Use exact requested indices, once each."
-                continue
-            still_pending = []
-            for i in pending:
-                try:
-                    results[i] = validate_entry(entries[i], battery)
-                    accepted[i] = entries[i]
-                    sources[i] = "llm:" + provider.label
-                except GuardrailError as exc:
-                    feedback[i] = str(exc)
-                    still_pending.append(i)
-            pending = still_pending
-        if not pending or time.monotonic() >= deadline:
+    attempts = {p.label: 0 for p in llm.providers}
+    retry_at = {p.label: 0.0 for p in llm.providers}
+    while pending:
+        now = time.monotonic()
+        remaining = deadline - now
+        if remaining <= 0.05:
             break
+        eligible = [p for p in llm.providers
+                    if p.label not in disabled
+                    and attempts[p.label] < settings.llm_max_tries
+                    and retry_at[p.label] < deadline - 0.05]
+        if not eligible:
+            break
+        ready = [p for p in eligible if retry_at[p.label] <= now]
+        if not ready:
+            # Sleep only when every usable provider is cooling down. Waiting and
+            # subsequent network attempts both consume the shared request budget.
+            await asyncio.sleep(min(retry_at[p.label] for p in eligible) - now)
+            continue
+        # A ready backup gets its first attempt before retrying the primary.
+        provider = min(ready, key=lambda p: attempts[p.label])
+        attempts[provider.label] += 1
+        timeout = min(settings.llm_timeout_s, remaining)
+        try:
+            reply = await asyncio.wait_for(llm.complete(
+                provider, SYSTEM_PROMPT, _user_prompt(notes, battery, pending, feedback),
+                timeout=timeout), timeout=timeout)
+        except (LLMError, asyncio.TimeoutError) as exc:
+            # Never log provider response bodies, prompts or model output.
+            log.warning("LLM attempt failed: provider=%s kind=%s", provider.label, type(exc).__name__)
+            if isinstance(exc, LLMError) and not exc.retryable:
+                disabled.add(provider.label)
+            else:
+                if isinstance(exc, LLMError) and exc.retry_after is not None:
+                    # Small margin avoids retrying before a rounded header expires.
+                    delay = exc.retry_after + 0.5
+                else:
+                    delay = min(0.5 * 2 ** (attempts[provider.label] - 1), 4.0)
+                retry_at[provider.label] = time.monotonic() + delay
+            continue
+        try:
+            entries = parse_llm_json(reply, pending)
+        except (ValueError, RecursionError):
+            for i in pending:
+                feedback[i] = "Invalid JSON or note mapping. Use exact requested indices, once each."
+            continue
+        still_pending = []
+        for i in pending:
+            try:
+                results[i] = validate_entry(entries[i], battery)
+                accepted[i] = entries[i]
+                sources[i] = "llm:" + provider.label
+            except GuardrailError as exc:
+                feedback[i] = str(exc)
+                still_pending.append(i)
+        pending = still_pending
     if pending:
         raise InterpretationError("A language model could not interpret every note safely. Check provider configuration, quota and availability.")
     cache.put(notes, battery, accepted)

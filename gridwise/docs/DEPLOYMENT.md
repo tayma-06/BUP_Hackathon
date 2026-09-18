@@ -2,17 +2,18 @@
 
 ## Prepare the repository
 
-Use the new repository created for this event after the question reveal. Put
-the **contents** of `gridwise` at its root, including the Dockerfile. Keep it
-private during the event; follow the organizer's timing for making it public.
-Never push `.env` or keys. No repository or deployment has been created for you
-by this package.
+Use the repository created for this event after the question reveal. The
+application and Dockerfile live in its `gridwise/` subfolder. Run local commands
+below from that folder (`cd gridwise` from the repository root). Keep the
+repository private during the event and follow the organizer's timing for
+making it public. Never push `.env`, editor-history backups, or keys.
 
 ## One hosting option: Render Docker web service
 
 1. Open Render and choose **New > Web Service**.
 2. Connect your Git provider and select the event repository.
-3. Choose the Docker runtime; use the root Dockerfile and its default command.
+3. Choose the Docker runtime, set **Root Directory** to `gridwise`, Dockerfile
+   path to `./Dockerfile`, and build context to `.`. Use the default command.
 4. Add the LLM variables from `.env.example` in the environment settings. Put
    the real key in the secret field. Set the health-check path to `/health`.
 5. Choose a compute plan suitable for remaining reachable during judging, then
@@ -20,9 +21,9 @@ by this package.
 6. Test the assigned public URL. `run.py` already binds to `0.0.0.0` and reads
    `PORT`.
 
-These steps follow [Render's Docker guide](https://render.com/docs/docker) and
-[web service guide](https://render.com/docs/web-services). No hosting account
-has been configured or charged here.
+The subfolder settings follow [Render's root-directory documentation](https://render.com/docs/monorepo-support#root-relative-settings).
+See also [Render's Docker guide](https://render.com/docs/docker) and
+[web service guide](https://render.com/docs/web-services).
 
 From a second machine/network, run:
 
@@ -38,8 +39,7 @@ The script's small sample measurement is evidence, not a hidden-test guarantee.
 
 ## Required pullable Docker fallback
 
-Docker is unavailable in the preparation environment, so the container is
-**not yet build/run tested**. Test these commands on a machine with Docker:
+Build and verify the container from the `gridwise/` application folder:
 
 ```bash
 docker build -t gridwise:1.0.0 .
