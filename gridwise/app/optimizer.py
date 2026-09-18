@@ -199,5 +199,12 @@ def optimize(scenario: Scenario, interpretations: list[dict]) -> OptimizationRes
 
 
 def warm_up() -> None:
-    """Solve a tiny LP at startup so the first real request is not slowed by imports."""
-    linprog(np.array([1.0]), bounds=[(0, 1)], method="highs")
+    """Solve a tiny LP at startup so the first real request is not slowed by imports.
+
+    A crashed warm-up (e.g. a native HiGHS access violation on some platforms)
+    must never block startup: the first real request recompiles the solver lazily.
+    """
+    try:
+        linprog(np.array([1.0]), bounds=[(0, 1)], method="highs")
+    except Exception as exc:
+        log.warning("Optimizer warmup skipped: %s", type(exc).__name__)

@@ -49,7 +49,10 @@ state: dict = {}
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    optimizer.warm_up()  # load scipy/HiGHS once, so the first request is fast
+    try:
+        optimizer.warm_up()  # load scipy/HiGHS once, so the first request is fast
+    except Exception:
+        log.warning("Optimizer warmup failed")
     state["llm"] = LLMClient(settings.providers)
     state["cache"] = NoteCache(settings.cache_size)
     state["solver_lock"] = asyncio.Semaphore(1)
