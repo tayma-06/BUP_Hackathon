@@ -1,17 +1,27 @@
 """Parse and validate the POST /optimize-energy request body.
 
-Why manual validation instead of pydantic models? It gives us exact control
-over the status codes the Problem Statement asks for:
-  400 -> malformed JSON or structurally invalid request (missing field, wrong type,
-         wrong array length, duplicate hours, empty note, ...)
-  422 -> well-formed but physically impossible numbers (negative demand,
-         initial battery energy outside [minimum, capacity], ...)
+Two layers live here:
+
+  * the pydantic models below exist ONLY so FastAPI exposes a real JSON request
+    body and a structured JSON response in Swagger / OpenAPI (docs);
+
+  * `parse_scenario` stays the single source of truth for validation. The
+    pydantic models are deliberately lenient (extra="allow", no number bounds),
+    and app/main.py routes FastAPI's body errors back through parse_scenario,
+    so the exact Problem Statement status-code contract is preserved:
+      400 -> malformed JSON or structurally invalid request (missing field, wrong type,
+             wrong array length, duplicate hours, empty note, ...)
+      422 -> well-formed but physically impossible numbers (negative demand,
+             initial battery energy outside [minimum, capacity], ...)
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 HOURS_PER_DAY = 24
 
@@ -143,3 +153,39 @@ def parse_scenario(body: object) -> Scenario:
         raise _impossible("battery.initial_energy_kwh must be between minimum_energy_kwh and capacity_kwh")
 
     return Scenario(scenario_id=scenario_id, notes=list(notes), hours=hours, battery=battery)
+
+
+class OptimizationRequest(BaseModel):
+    """POST /optimize-energy request body, as shown in OpenAPI /docs.
+
+    Deliberately lenient (extra keys / any nested shapes are allowed):
+    FastAPI only needs a well-formed JSON object here. The exact Problem
+    Statement contract (400 vs 422) is enforced by `parse_scenario`, which
+    the endpoint re-runs on the raw body, and by the RequestValidationError
+    handler in app/main.py.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    scenario_id: str
+    operator_notes: list[str]
+    hours: list[dict[str, Any]]
+    battery: dict[str, Any]
+
+
+class OptimizationResponse(BaseModel):
+    """POST /optimize-energy success response, as shown in OpenAPI /docs.
+
+    hourly_plan / directive_interpretation are kept as bare lists so their
+    exact nested content is passed through unmodified.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    scenario_id: str
+    directive_interpretation: list
+    hourly_plan: list
+    total_grid_kwh: float
+    total_cost_bdt: float
+    peak_grid_kwh: float
+    plan_summary: str

@@ -21,6 +21,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -30,7 +31,7 @@ from .config import load_settings
 from .guardrails import clean_number
 from .interpreter import NoteCache, InterpretationError, interpret_notes
 from .llm_client import LLMClient
-from .schemas import RequestError, Scenario, parse_scenario
+from .schemas import OptimizationRequest, OptimizationResponse, RequestError, Scenario, parse_scenario
 from .validator import check_interpretation_schema, replay_plan
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -80,6 +81,22 @@ async def http_error_handler(_request: Request, exc: StarletteHTTPException):
     return error_response(exc.status_code, "http_error", str(exc.detail))
 
 
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, _exc: RequestValidationError):
+    # FastAPI's pydantic layer rejected the body. Re-run the authoritative
+    # manual parser on the raw bytes so the exact 400 / 422 contract holds.
+    raw = await request.body()
+    try:
+        body = json.loads(raw, parse_constant=_reject_constant)
+    except (ValueError, RecursionError):
+        return error_response(400, "malformed_json", "Request body must be valid JSON.")
+    try:
+        parse_scenario(body)
+    except RequestError as exc:
+        return error_response(exc.status, exc.code, exc.message)
+    return error_response(400, "invalid_request", "Request body failed schema validation.")
+
+
 @app.exception_handler(Exception)
 async def unexpected_error_handler(_request: Request, exc: Exception):
     # Controlled 500: log the type only, never a stack trace or a secret in the response.
@@ -102,8 +119,8 @@ async def root():
     return {"service": "GridWise LLM", "endpoints": ["GET /health", "POST /optimize-energy"]}
 
 
-@app.post("/optimize-energy")
-async def optimize_energy(request: Request):
+@app.post("/optimize-energy", response_model=OptimizationResponse)
+async def optimize_energy(payload: OptimizationRequest, request: Request):
     started = time.perf_counter()
 
     # 1) parse + validate the request (400 malformed / 422 impossible values)
